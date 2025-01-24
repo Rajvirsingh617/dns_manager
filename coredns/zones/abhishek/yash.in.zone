@@ -1,0 +1,22 @@
+
+    $TTL 3600
+    @       IN      SOA     ns1.yash.in. admin.yash.in. (
+                        2025012401              ; Serial
+                        14400       ; Refresh
+                        3600         ; Retry
+                        604800        ; Expire
+                        7200    )      ; Minimum TTL
+    
+    IN      NS      ns1.yash.in.
+    IN      NS      ns2.yash.in.
+    
+    @       IN      A       192.168.1.1
+    ftp     IN      A       fe80::1ff:fe23:4567:890a
+    mail    IN      A       192.168.1.1
+    www     IN      CNAME   @
+    @       IN      MX      10 mail.yash.in
+    @    IN    A    192.168.1.1
+ftp    IN    A    fe80::1ff:fe23:4567:890a
+mail    IN    A    192.168.1.1
+www    IN    CNAME    @
+@    IN    MX    10 mail.yash.in

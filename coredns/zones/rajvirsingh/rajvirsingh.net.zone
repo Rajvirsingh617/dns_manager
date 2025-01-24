@@ -1,0 +1,15 @@
+
+        $TTL 3600
+        @       IN      SOA     ns1.rajvirsingh.net. admin.rajvirsingh.net. (
+                            2025012401              ; Serial
+                            288001       ; Refresh
+                            72001         ; Retry
+                            12096001        ; Expire
+                            864001           )      ; Minimum TTL
+        
+        IN      NS      ns1.rajvirsingh.net.
+        IN      NS      ns2.rajvirsingh.net.
+        ftp    IN    A    fe80::1ff:fe23:4567:890b
+mail    IN    A    192.168.1.1
+@    IN    MX     mail.rajvirsingh.net
+example.com    IN    A    192.168.1.1

@@ -1,0 +1,16 @@
+
+$TTL 3600
+@       IN      SOA     ns1.anil.com. admin.anil.com. (
+                    2025012201              ; Serial
+                    2880       ; Refresh
+                    1270         ; Retry
+                    12360        ; Expire
+                    12240    )      ; Minimum TTL
+
+IN      NS      ns1.anil.com.
+IN      NS      ns2.anil.com.
+@    IN    A    192.168.1.10
+ftp    IN    A    2001:0db8:85a3:0000:0000:8a2e:0370:7334
+mail    IN    A    203.0.113.6
+www    IN    CNAME    @
+@    IN    MX     10 mail.anil.com

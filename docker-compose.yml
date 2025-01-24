@@ -1,0 +1,64 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    container_name: dns-app
+    ports:
+      - "8001:80"
+    networks:
+      - dns-network
+    depends_on:
+      - db
+    volumes:
+      - ./laravel:/var/www/html
+      - ./coredns:/etc/coredns
+
+  db:
+    image: mysql:latest
+    container_name: dns-db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: dns_management
+      MYSQL_USER: user
+      MYSQL_PASSWORD: userpassword
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - dns-network
+    ports:
+      - "3307:3306"
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: dns-pma
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      MYSQL_ROOT_PASSWORD: rootpassword  # The root password for MySQL
+    networks:
+      - dns-network
+    ports:
+      - "8080:80"  # Access phpMyAdmin on port 8080
+    depends_on:
+      - db
+
+  coredns:
+    image: coredns/coredns:latest
+    container_name: dns-coredns
+    volumes:
+      - ./coredns:/etc/coredns
+    restart: always
+    ports:
+      - "53:53/udp"
+      - "53:53/tcp"
+    networks:
+      - dns-network
+
+networks:
+  dns-network:
+    driver: bridge
+
+volumes:
+  db_data:
+    driver: local

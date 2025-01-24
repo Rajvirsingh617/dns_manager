@@ -8,6 +8,8 @@ use App\Models\ZoneRecord;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
+
 
 
 class ZoneController extends Controller
@@ -291,52 +293,61 @@ IN      NS      ns2." . $zoneName . ".
 
 
     public function updateRecords(Request $request, $id)
-    {
-        // Find the Zone by its ID
-        $zone = Zone::findOrFail($id);
+{
+    // Find the Zone by its ID
+    $zone = Zone::findOrFail($id);
 
-        if ($request->has('host')) {
-            foreach ($request->host as $key => $host) {
-                $type = $request->type[$key];
-                $destination = $request->destination[$key];
+    if ($request->has('host')) {
+        foreach ($request->host as $key => $host) {
+            $type = $request->type[$key];
+            $destination = $request->destination[$key];
 
-                // Validation rules for each record
-                $validator = Validator::make([
+            // Validation rules for each record
+            $validator = Validator::make([
+                'host' => $host,
+                'type' => $type,
+                'destination' => $destination,
+            ], [
+                'host' => ['required', 'string', 'regex:/^([a-zA-Z0-9-]+\\.)*[a-zA-Z0-9-]+$/'],
+                'type' => ['required', 'in:A,A6,AAAA,CNAME,AFSDB,DNAME,DS,LOC,MX,NAPTR,NS,PTR,RP,SRV,SSHFP,TXT,WKS'],
+                'destination' => $this->getDestinationValidationRule($type),
+            ]);
+
+            // If validation fails, skip this record
+            if ($validator->fails()) {
+                if ($request->newtype == 'MX' && strpos($request->newdestination, ' ') === false) {
+                    // Assume MX records must have a priority and domain (e.g., "10 mail.anil.com")
+                    $request->newdestination = '10 ' . $request->newdestination;
+                }
+            }
+
+            $record = $zone->records()->find($request->record_id[$key]);
+            if ($record) {
+                $record->update([
                     'host' => $host,
                     'type' => $type,
                     'destination' => $destination,
-                ], [
-                    'host' => ['required', 'string', 'regex:/^([a-zA-Z0-9-]+\\.)*[a-zA-Z0-9-]+$/'],
-                    'type' => ['required', 'in:A,A6,AAAA,CNAME,AFSDB,DNAME,DS,LOC,MX,NAPTR,NS,PTR,RP,SRV,SSHFP,TXT,WKS'],
-                    'destination' => $this->getDestinationValidationRule($type),
                 ]);
 
-                // If validation fails, skip this record
-                if ($validator->fails()) {
-                    if ($request->newtype == 'MX' && strpos($request->newdestination, ' ') === false) {
-                        // Assume MX records must have a priority and domain (e.g., "10 mail.anil.com")
-                        $request->newdestination = '10 ' . $request->newdestination;
-                    }
-                }
-
-                $record = $zone->records()->find($request->record_id[$key]);
-                if ($record) {
-                    $record->update([
-                        'host' => $host,
-                        'type' => $type,
-                        'destination' => $destination,
-                    ]);
-
-                    // Handle deletion if checkbox is checked
-                    if (isset($request->delete[$key])) {
-                        $record->delete();
-                    }
+                // Handle deletion if checkbox is checked
+                if (isset($request->delete[$key])) {
+                    $record->delete();
                 }
             }
         }
+    }
 
-        // Add new record if provided
-        if ($request->filled(['newhost', 'newtype', 'newdestination'])) {
+    // Add new record if provided
+    if ($request->filled(['newhost', 'newtype', 'newdestination'])) {
+        // Check if a record already exists with the same host, type, and destination to avoid duplicates
+        $existingRecord = $zone->records()->where('host', $request->newhost)
+            ->where('type', $request->newtype)
+            ->where('destination', $request->newdestination)
+            ->first();
+
+        // If a record already exists, don't store it
+        if (!$existingRecord) {
+            // Validation for new record
             $validator = Validator::make([
                 'host' => $request->newhost,
                 'type' => $request->newtype,
@@ -355,10 +366,13 @@ IN      NS      ns2." . $zoneName . ".
                 ]);
             }
         }
-        $this->updateZoneFile($zone);
-
-        return back()->with('success', 'Zone updated successfully!');
     }
+
+    $this->updateZoneFile($zone);
+
+    return back()->with('success', 'Zone updated successfully!');
+}
+
 
     private function getDestinationValidationRule($type)
     {
@@ -1033,33 +1047,64 @@ IN      NS      ns2." . $zoneName . ".
 
 
     public function deleteRecordApi(Request $request, $uuid, $recordId)
-    {
-        $apiKey = $request->header('Authorization');
-        $apiKey = str_replace('Bearer ', '', $apiKey);
-        $user = Auth::user();
+{
+    $apiKey = $request->header('Authorization');
+    $apiKey = str_replace('Bearer ', '', $apiKey);
+    $user = Auth::user();
 
-        if (!$user || $user->api_token !== $apiKey) {
-            return response()->json(['error' => 'Unauthorized. Invalid API Key.'], 401);
-        }
-
-        $zone = Zone::where('uuid', $uuid)->first();
-
-        if (!$zone) {
-            return response()->json(['error' => 'Zone not found'], 404);
-        }
-
-        if ($zone->owner !== $user->id) {
-            return response()->json(['error' => 'Unauthorized to delete records for this zone'], 403);
-        }
-
-        $record = $zone->records()->where('id', $recordId)->first();
-
-        if (!$record) {
-            return response()->json(['error' => 'Record not found'], 404);
-        }
-
-        $record->delete();
-
-        return response()->json(['message' => 'Record deleted successfully'], 200);
+    // Check if the user is authenticated
+    if (!$user || $user->api_token !== $apiKey) {
+        return response()->json(['error' => 'Unauthorized. Invalid API Key.'], 401);
     }
+
+    // Find the zone by UUID
+    $zone = Zone::where('uuid', $uuid)->first();
+
+    // Check if the zone exists
+    if (!$zone) {
+        return response()->json(['error' => 'Zone not found'], 404);
+    }
+
+    // Ensure the authenticated user is the owner of the zone
+    if ($zone->owner !== $user->id) {
+        return response()->json(['error' => 'Unauthorized to delete records for this zone'], 403);
+    }
+
+    // Find the record to delete
+    $record = $zone->records()->where('id', $recordId)->first();
+
+    // Check if the record exists
+    if (!$record) {
+        return response()->json(['error' => 'Record not found'], 404);
+    }
+
+    // Prepare the file path for the zone file
+    $username = $user->username;
+    $directory = "/etc/coredns/zones/" . $username;
+    $filename = $directory . "/" . $zone->name . ".zone";
+
+    // Check if the zone file exists
+    if (file_exists($filename)) {
+        // Get the current file contents
+        $fileContents = file_get_contents($filename);
+
+        // Define the pattern to match the record line, based on the record's name and type
+        $pattern = "/^\s*" . preg_quote($record->name, '/') . "\s+IN\s+" . preg_quote($record->type, '/') . ".*$/m";
+
+        // Remove the record line from the contents
+        $updatedContents = preg_replace($pattern, "", $fileContents);
+
+        // Check if the contents have been modified (record was found and removed)
+        if ($updatedContents !== $fileContents) {
+            // Save the updated contents back to the file
+            file_put_contents($filename, $updatedContents);
+        }
+    }
+
+    // Delete the record from the database
+    $record->delete();
+
+    return response()->json(['message' => 'Record deleted successfully'], 200);
+}
+
 }

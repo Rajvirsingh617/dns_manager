@@ -609,14 +609,7 @@ IN      NS      ns2." . $zoneName . ".
     IN      NS      ns2." . $zoneName . ".
     ";
 
-        // Add the default DNS records (www, mail, ftp, etc.)
-        $zoneContent .= "
-    @       IN      A       " . $zone->www . "
-    ftp     IN      A       " . $zone->ftp . "
-    mail    IN      A       " . $zone->mail . "
-    www     IN      CNAME   @
-    @       IN      MX      10 mail." . $zoneName . "
-    ";
+
 
         // Write the zone content to the file
         file_put_contents($filename, $zoneContent);
@@ -648,8 +641,14 @@ IN      NS      ns2." . $zoneName . ".
             if (isset($record['priority']) && $record['type'] === 'MX') {
                 $recordContent = "{$record['host']}    IN    MX    {$record['priority']} {$record['destination']}\n";
             }
-            file_put_contents($filename, $recordContent, FILE_APPEND);
+            // Check if the record already exists in the zone file
+            if (strpos(file_get_contents($filename), $recordContent) === false) {
+                // Append the record to the zone file if it doesn't exist
+                file_put_contents($filename, $recordContent, FILE_APPEND);
+            }
         }
+    
+
 
         // Return the zone as a JSON response
         return response()->json($zone, 201);

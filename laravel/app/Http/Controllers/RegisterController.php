@@ -14,27 +14,27 @@ class RegisterController extends Controller
         return view('auth.register');
     }
 
-    
+
     public function store(Request $request)
     {
-        
+
         $request->validate([
-            'username' => 'required|string|max:255|unique:dns_users,username|regex:/^[a-z]+$/',
+            'username' => 'required|string|max:255|unique:dns_users,username',
             'email' => 'required|email|max:255|unique:dns_users,email',
             'password' => 'required|string|min:6|confirmed',
             ], [
             'username.regex' => 'The username must only contain lowercase letters.',
             ]);
-        
 
-        
+
+
         DnsUser::create([
             'username' => $request->username,
             'email' => $request->email,
             'password' => Hash::make($request->password),  // Hash the password before storing
             ]);
 
-            $userDirectory = "/etc/coredns/zones/" . $request->username;
+            $userDirectory = "/var/www/html/coredns/zones/" . $request->username;
             if (!file_exists($userDirectory)) {
             mkdir($userDirectory, 0777, true);  // Create the directory if it doesn't exist
             }

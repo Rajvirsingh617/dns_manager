@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\User;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
-
+use Illuminate\Support\Str;
 
 
 class ZoneController extends Controller
@@ -65,6 +65,7 @@ class ZoneController extends Controller
 
         // Create the zone
         $zone = new Zone();
+        $zone->uuid = Str::uuid()->toString();
         $zone->name = $request->name;
         $zone->refresh = $request->refresh;
         $zone->retry = $request->retry;
@@ -87,7 +88,7 @@ class ZoneController extends Controller
         // Get the username of the authenticated user
         $username = auth()->user()->username;
         $zoneName = $zone->name;
-        $directory = "/etc/coredns/zones/" . $username;
+        $directory = "/var/www/html/coredns/zones/" . $username;
 
         if (!file_exists($directory)) {
             mkdir($directory, 0755, true); // Creates the directory with the proper permissions
@@ -175,7 +176,7 @@ IN      NS      ns2." . $zoneName . ".
         $zone->delete();
 
         // Construct the directory path for the user
-        $directory = "/etc/coredns/zones/" . $username;
+        $directory = "/var/www/html/coredns/zones/" . $username;
         $filename = $directory . "/" . $zoneName . ".zone";
 
         // Remove the zone file
@@ -189,7 +190,7 @@ IN      NS      ns2." . $zoneName . ".
         }
 
         // Update Corefile to remove the zone entry
-        $corefilePath = "/etc/coredns/Corefile"; // Assuming this is the Corefile path
+        $corefilePath = "/var/www/html/coredns/Corefile"; // Assuming this is the Corefile path
         if (file_exists($corefilePath)) {
             $corefileContent = file_get_contents($corefilePath);
 
@@ -252,7 +253,7 @@ IN      NS      ns2." . $zoneName . ".
 
         // Get the username and path to the user's zone directory
         $username = auth()->user()->username;
-        $directory = "/etc/coredns/zones/" . $username;
+        $directory = "/var/www/html/coredns/zones/" . $username;
         $filename = $directory . "/" . $zone->name . ".zone";
 
         // Ensure the directory exists
@@ -448,7 +449,7 @@ IN      NS      ns2." . $zoneName . ".
     protected function updateZoneFile(Zone $zone)
     {
         $username = auth()->user()->username;
-        $directory = "/etc/coredns/zones/" . $username;
+        $directory = "/var/www/html/coredns/zones/" . $username;
         $filename = $directory . "/" . $zone->name . ".zone";
 
         // Check if the directory exists; if not, create it
@@ -585,7 +586,7 @@ IN      NS      ns2." . $zoneName . ".
         // Get the username of the authenticated user
         $username = $user->username;
         $zoneName = $zone->name;
-        $directory = "/etc/coredns/zones/" . $username;
+        $directory = "/var/www/html/coredns/zones/" . $username;
 
         // Ensure the directory exists
         if (!file_exists($directory)) {
@@ -647,7 +648,7 @@ IN      NS      ns2." . $zoneName . ".
                 file_put_contents($filename, $recordContent, FILE_APPEND);
             }
         }
-    
+
 
 
         // Return the zone as a JSON response
@@ -701,7 +702,7 @@ IN      NS      ns2." . $zoneName . ".
             \Log::info('Validated Data: ', $validated);
 
             // Handle old zone file if the name changes
-            $oldFilename = "/etc/coredns/zones/" . $user->username . "/" . $zone->name . ".zone";
+            $oldFilename = "/var/www/html/coredns/zones/" . $user->username . "/" . $zone->name . ".zone";
             if (isset($validated['name']) && $validated['name'] !== $zone->name) {
                 if (file_exists($oldFilename)) {
                     unlink($oldFilename);
@@ -712,7 +713,7 @@ IN      NS      ns2." . $zoneName . ".
             $zone->update($validated);
 
             // Ensure the directory exists
-            $directory = "/etc/coredns/zones/" . $user->username;
+            $directory = "/var/www/html/coredns/zones/" . $user->username;
             if (!file_exists($directory)) {
                 mkdir($directory, 0755, true);
             }
@@ -781,7 +782,7 @@ IN      NS      ns2." . $zoneName . ".
 
         // Prepare the file path for the zone file
         $username = $user->username;
-        $directory = "/etc/coredns/zones/" . $username;
+        $directory = "/var/www/html/coredns/zones/" . $username;
         $filename = $directory . "/" . $zone->name . ".zone";
 
         // Delete the zone file if it exists
@@ -839,7 +840,7 @@ IN      NS      ns2." . $zoneName . ".
     // Define the path to save the zone record
     $usernameFolder = $user->username; // Assuming a 'username' field exists in the users table
     $zoneName = $zone->name;
-    $zoneDirectory = "/etc/coredns/zones/{$usernameFolder}";
+    $zoneDirectory = "/var/www/html/coredns/zones/{$usernameFolder}";
     $zoneFilePath = "{$zoneDirectory}/{$zoneName}.zone";
 
     // Ensure the folder exists
@@ -999,11 +1000,14 @@ IN      NS      ns2." . $zoneName . ".
 
     public function updateRecordApi(Request $request, $uuid, $recordId)
     {
+        // Fetch the API key from the Authorization header
         $apiKey = $request->header('Authorization');
         $apiKey = str_replace('Bearer ', '', $apiKey);
+
+        // Get the authenticated user
         $user = Auth::user();
 
-        // Check user authentication
+        // Check if the API key is valid
         if (!$user || $user->api_token !== $apiKey) {
             return response()->json(['error' => 'Unauthorized. Invalid API Key.'], 401);
         }
@@ -1041,7 +1045,7 @@ IN      NS      ns2." . $zoneName . ".
             'valid' => $validated['valid'],
         ]);
 
-        // Optionally update the zone file if required
+        // Update the zone file if required
         $this->updateZoneFile($zone);
 
         return response()->json([
@@ -1049,7 +1053,6 @@ IN      NS      ns2." . $zoneName . ".
             'record' => $record,
         ], 200);
     }
-
 
     public function deleteRecordApi(Request $request, $uuid, $recordId)
 {
@@ -1085,7 +1088,7 @@ IN      NS      ns2." . $zoneName . ".
 
     // Prepare the file path for the zone file
     $username = $user->username;
-    $zoneDirectory = "/etc/coredns/zones/{$username}";
+    $zoneDirectory = "/var/www/html/coredns/zones/{$username}";
     $zoneFilePath = "{$zoneDirectory}/{$zone->name}.zone";
 
     // Remove the record from the zone file

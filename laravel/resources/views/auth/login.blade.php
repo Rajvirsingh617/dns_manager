@@ -91,10 +91,10 @@
             <button type="submit" class="btn btn-primary w-100">Sign In</button>
         </form>
         <div class="mt-3 text-center">
-            <strong><a href="/resetpassword">Forgot Password ?</a></strong> | 
+            <strong><a href="/resetpassword">Forgot Password ?</a></strong> |
             <strong><a href="/">Create an account</a></strong>
         </div>
-        
+
     </div>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     @if(session('success'))

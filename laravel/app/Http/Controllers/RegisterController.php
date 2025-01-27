@@ -19,12 +19,13 @@ class RegisterController extends Controller
     {
 
         $request->validate([
-            'username' => 'required|string|max:255|unique:dns_users,username',
+            'username' => 'required|string|max:255|unique:dns_users,username|regex:/^[a-z0-9]+$/',
             'email' => 'required|email|max:255|unique:dns_users,email',
             'password' => 'required|string|min:6|confirmed',
             ], [
             'username.regex' => 'The username must only contain lowercase letters.',
             ]);
+
 
 
 
@@ -34,9 +35,9 @@ class RegisterController extends Controller
             'password' => Hash::make($request->password),  // Hash the password before storing
             ]);
 
-            $userDirectory = "/var/www/html/coredns/zones/" . $request->username;
+            $userDirectory = "/var/www/html/storage/app/coredns/zones/" . $request->username;
             if (!file_exists($userDirectory)) {
-            mkdir($userDirectory, 0777, true);  // Create the directory if it doesn't exist
+                mkdir($userDirectory, 0777, true);  // Create the directory if it doesn't exist
             }
 
         // Redirect to login page after successful registration

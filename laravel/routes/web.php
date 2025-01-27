@@ -45,9 +45,11 @@ Route::middleware('auth')->group(function () {
     Route::put('/zones/{id}/update-records', [ZoneController::class, 'updateRecords'])->name('zones.updateRecords');
     Route::put('/zones/{id}', [ZoneController::class, 'update'])->name('zones.update');
     Route::delete('/records/{id}', [ZoneController::class, 'destroy'])->name('zones.destroy');
-
-
+    //name server
+    Route::get('/name-servers', [ZoneController::class, 'showNameServers'])->name('name.servers');
     });
+
+
 
 
 

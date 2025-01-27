@@ -1,9 +1,0 @@
-.:53 {
-    file /etc/coredns/zones/*/*.zone {
-        reload 30s
-    }
-    forward . 8.8.8.8
-    log
-    errors
-}
-

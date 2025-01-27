@@ -315,7 +315,7 @@
     <div class="sidebar">
         <div class="sidebar-header">
             <img src="/images/dnss.png" alt="DNS Logo">
-            <h6>FREE-DNS Manager</h6>
+            <h7>OCEAN DNS Manager</h7>
 
         </div>
 
@@ -342,7 +342,17 @@
                     <i class="fa fa-lock "></i>
                     <span> Auth Key</span>
                 </a>
-            </li>
+                        @auth
+            @if (Auth::user()->role === 'admin')
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ route('name.servers') }}">
+                        <i class="fa-solid fa-server"></i>
+                        <span>Name Server</span>
+                    </a>
+                </li>
+            @endif
+        @endauth
+
             <li class="nav-item">
                 <a class="nav-link text-danger" href="{{ route('commit.changes') }}">
                     <i class="fa fa-code-branch"></i>

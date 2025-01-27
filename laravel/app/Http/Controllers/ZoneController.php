@@ -38,28 +38,29 @@ class ZoneController extends Controller
         // Validate fields specific to the zone
         $request->validate(
             [
-                'name' => '',/* ['required', 'unique:zones,name', 'regex:/^(?!-)[a-zA-Z0-9-]{1,63}(?<!-)\.[a-zA-Z]{2,}$/'] */
+                'name' => ['required', 'unique:zones,name', 'regex:/^(?!-)[a-zA-Z0-9-]{1,63}(?<!-)\.[a-zA-Z]{2,}$/'],
                 'refresh' => 'required|integer',
                 'retry' => 'required|integer',
                 'expire' => 'required|integer',
                 'ttl' => 'required|integer',
                 'pri_dns' => 'required|string',
                 'sec_dns' => 'required|string',
-                'www' => 'nullable',
-                'mail' => 'nullable',
-                'ftp' => 'nullable',
+                'records' => 'nullable|array',
+                'records.*.host' => 'required|string',
+                'records.*.type' => 'required|string',
+                'records.*.destination' => 'required|string',
                 'user_id' => 'nullable|exists:dns_users,id',
-            ]
-            /* [
+            ],
+            [
                 'name.required' => 'The zone name is required.',
                 'name.regex' => 'The domain name must be valid (e.g., example.com, domain.store).',
                 'name.unique' => 'The zone name must be unique.',
-            ] */
+            ]
         );
 
         // Check if the zone already exists
         $existingZone = Zone::where('name', $request->name)->first();
-        if ($existingZone) {
+        if ($existingZone){
             return back()->with('error', 'The zone already exists in the database.');
         }
 
@@ -73,87 +74,77 @@ class ZoneController extends Controller
         $zone->ttl = $request->ttl;
         $zone->pri_dns = $request->pri_dns;
         $zone->sec_dns = $request->sec_dns;
-        $zone->www = $request->www; // Assigning www field
-        $zone->mail = $request->mail; // Assigning mail field
-        $zone->ftp = $request->ftp; // Assigning ftp field
+        $zone->www = $request->www;
+        $zone->mail = $request->mail;
+        $zone->ftp = $request->ftp;
         $zone->owner = auth()->user()->isAdmin() && $request->user_id ? $request->user_id : Auth::id();
         $zone->save();
 
-        if (auth()->user()->isAdmin() && $request->user_id) {
-            $zone->owner = $request->user_id;
-        } else {
-            $zone->owner = Auth::id();
-        }
-
-        // Get the username of the authenticated user
+        // Prepare zone file
         $username = auth()->user()->username;
-        $zoneName = $zone->name;
         $directory = "/var/www/html/storage/app/coredns/zones/" . $username;
-
         if (!file_exists($directory)) {
-            mkdir($directory, 0755, true); // Creates the directory with the proper permissions
+            mkdir($directory, 0755, true);
         }
 
         $filename = $directory . "/" . $request->name . ".zone";
         $serial = date('Ymd') . '01';
-        // Sample DNS zone file content
         $zoneContent = "
-
 \$TTL {$zone->ttl}
-    @       IN      SOA     {$zone->pri_dns}. admin.{$zone->name}. (
-                    {$serial}        ; Serial
-                    {$zone->refresh} ; Refresh
-                    {$zone->retry}   ; Retry
-                    {$zone->expire}  ; Expire
-                    {$zone->ttl}     ; Minimum TTL
+@       IN      SOA     {$zone->pri_dns}. admin.{$zone->name}. (
+                        {$serial}        ; Serial
+                        {$zone->refresh} ; Refresh
+                        {$zone->retry}   ; Retry
+                        {$zone->expire}  ; Expire
+                        {$zone->ttl}     ; Minimum TTL
+)
+; Name Servers
+@       IN      NS      {$zone->pri_dns}.
+@       IN      NS      {$zone->sec_dns}.
+    ";
 
-IN      NS      ns1." . $zoneName . ".
-IN      NS      ns2." . $zoneName . ".
-
-
-    )
-    @       IN      A       {$zone->www}
-    ftp     IN      A       {$zone->ftp}
-    mail    IN      A       {$zone->mail}
-    www     IN      CNAME   @
-    @       IN      MX      10 mail.{$zone->name}.
-    ZONE";
-
-
-        // Write to zone file
-        file_put_contents($filename, $zoneContent);
-
-        // Handle dynamic or random record creation
-        $records = $request->get('records', []); // Records provided in the request
+        // Handle records
+        $records = $request->get('records', []); // Ensure it's an array
         if (empty($records)) {
-            // Generate random records if none are provided
+            // Generate default records if none are provided
             $records = [
-                ['host' => '@', 'type'     => 'A', 'destination'     => $zone->www],
-                ['host' => 'ftp', 'type'   => 'A', 'destination'     => $zone->ftp],
-                ['host' => 'mail', 'type'  => 'A', 'destination'     =>  $zone->mail],
-                ['host' => 'www', 'type'   => 'CNAME', 'destination' => '@'],
-                ['host' => '@', 'type'     => 'MX', 'destination'    => 'mail.' . $zone->name, 'priority' => 10],
+                ['host' => '@', 'type' => 'A', 'destination' => $zone->www],
+                ['host' => 'ftp', 'type' => 'A', 'destination' => $zone->ftp],
+                ['host' => 'mail', 'type' => 'A', 'destination' => $zone->mail],
+                ['host' => 'www', 'type' => 'CNAME', 'destination' => '@'],
+                ['host' => '@', 'type' => 'MX', 'destination' => 'mail.' . $zone->name, 'priority' => 10],
             ];
         }
 
+        // Group records by type and add headings
+        $recordTypes = [];
+        foreach ($records as $record) {
+            $type = $record['type'];
+            $recordTypes[$type][] = $record;
+        }
+
+        foreach ($recordTypes as $type => $groupedRecords) {
+            $zoneContent .= "\n; {$type} Records\n"; // Heading
+            foreach ($groupedRecords as $record) {
+                $priority = ($type === 'MX' || $type === 'SRV') && isset($record['priority']) ? "{$record['priority']} " : '';
+                $zoneContent .= "{$record['host']}    IN    {$type}    {$priority}{$record['destination']}\n";
+            }
+        }
+
+        // Save zone file
+        file_put_contents($filename, $zoneContent);
+
+        // Save records to the database
         foreach ($records as $record) {
             $zone->records()->create([
                 'host' => $record['host'],
                 'type' => $record['type'],
                 'destination' => $record['destination'],
-                'priority' => $record['priority'] ?? null, // For MX records
+                'priority' => $record['priority'] ?? null,
             ]);
-
-            // Append to zone file
-            $recordContent = "{$record['host']}    IN    {$record['type']}    {$record['destination']}\n";
-            if (isset($record['priority']) && $record['type'] === 'MX') {
-                $recordContent = "{$record['host']}    IN    MX    {$record['priority']} {$record['destination']}\n";
-            }
-            file_put_contents($filename, $recordContent, FILE_APPEND);
         }
 
-        // Update Corefile to include the new zone
-        return redirect()->route('zones.index')->with('success', 'Zone and record added successfully!');
+        return redirect()->route('zones.index')->with('success', 'Zone and records added successfully!');
     }
 
 
@@ -264,17 +255,17 @@ IN      NS      ns2." . $zoneName . ".
         // Regenerate the zone file with updated information
         $serial = date('Ymd') . '01'; // Updated serial based on date
         $zoneContent = "
-    \$TTL 3600
-    @       IN      SOA     ns1." . $zone->name . ". admin." . $zone->name . ". (
+\$TTL 3600
+@       IN      SOA     ns1." . $zone->name . ". admin." . $zone->name . ". (
                 $serial              ; Serial
                 {$zone->refresh}     ; Refresh
                 {$zone->retry}       ; Retry
                 {$zone->expire}      ; Expire
                 {$zone->ttl}         ) ; Minimum TTL
 
-    IN      NS      ns1." . $zone->name . ".
-    IN      NS      ns2." . $zone->name . ".
-    ";
+IN      NS      ns1." . $zone->name . ".
+IN      NS      ns2." . $zone->name . ".
+";
 
         // Overwrite the existing zone file with updated content
         file_put_contents($filename, $zoneContent);

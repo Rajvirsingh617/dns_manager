@@ -14,11 +14,11 @@ return new class extends Migration
     {
         Schema::create('zone_records', function (Blueprint $table) {
             $table->id();
-            $table->string('host'); 
+            $table->string('host');
             $table->enum('type', ['A', 'AAAA', 'CNAME', 'DNAME', 'DS', 'LOC', 'MX', 'NAPTR', 'NS', 'PTR', 'RP', 'SRV', 'SSHFP', 'TXT', 'WKS']);
             $table->string('destination');
             $table->boolean('valid')->default(true);
-            $table->unsignedBigInteger('zone_id')->nullable();            
+            $table->unsignedBigInteger('zone_id')->nullable();
             $table->timestamps();
             $table->foreign('zone_id')->references('id')->on('zones')->onDelete('cascade');
         });

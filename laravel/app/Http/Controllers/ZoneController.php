@@ -320,7 +320,6 @@ IN      NS      ns2." . $zone->name . ".
 
     // Handle new record creation
     if ($request->has('newhost')) {
-        // Create new record in the database
         $newRecord = $zone->records()->create([
             'host' => $request->newhost,
             'type' => $request->newtype,
@@ -339,18 +338,27 @@ IN      NS      ns2." . $zone->name . ".
         // Get the existing content of the zone file
         $zoneContent = file_get_contents($filename);
 
-        // Check if the label for this record type exists, if not, add it
-        $recordType = strtoupper($newRecord->type); // A, CNAME, MX, etc.
-        if (strpos($zoneContent, "; {$recordType} Records") === false) {
-            $zoneContent .= "\n; {$recordType} Records\n";
-        }
+        // Ensure all sections are created
+        $zoneContent = $this->ensureSectionExists($zoneContent, 'A Records');
+        $zoneContent = $this->ensureSectionExists($zoneContent, 'MX Records');
+        $zoneContent = $this->ensureSectionExists($zoneContent, 'CNAME Records');
+        $zoneContent = $this->ensureSectionExists($zoneContent, 'AAAA Records');
+        $zoneContent = $this->ensureSectionExists($zoneContent, 'DNAME Records');
+        $zoneContent = $this->ensureSectionExists($zoneContent, 'DS Records');
+        $zoneContent = $this->ensureSectionExists($zoneContent, 'LOC Records');
+        $zoneContent = $this->ensureSectionExists($zoneContent, 'MX Records');
+        $zoneContent = $this->ensureSectionExists($zoneContent, 'NAPTR Records');
+        $zoneContent = $this->ensureSectionExists($zoneContent, 'NS Records');
+        $zoneContent = $this->ensureSectionExists($zoneContent, 'PTR Records');
+        $zoneContent = $this->ensureSectionExists($zoneContent, 'RP Records');
+        $zoneContent = $this->ensureSectionExists($zoneContent, 'SRV Records');
+        $zoneContent = $this->ensureSectionExists($zoneContent, 'SSHFP Records');
+        $zoneContent = $this->ensureSectionExists($zoneContent, 'TXT Records');
+        $zoneContent = $this->ensureSectionExists($zoneContent, 'WKS Records');
 
-        // Check if the record already exists to avoid duplicates
+        // Add the new record to the appropriate section based on its type
         $recordLine = "{$newRecord->host}    IN    {$newRecord->type}    {$newRecord->destination}\n";
-        if (strpos($zoneContent, $recordLine) === false) {
-            // Add the new record only if it does not already exist
-            $zoneContent .= $recordLine;
-        }
+        $zoneContent = $this->addRecordToSection($zoneContent, $newRecord->type, $recordLine);
 
         // Save the updated zone file
         file_put_contents($filename, $zoneContent);
@@ -358,6 +366,37 @@ IN      NS      ns2." . $zone->name . ".
 
     return redirect()->route('zones.edit', $zoneId)->with('success', 'Records updated successfully!');
 }
+
+private function ensureSectionExists($zoneContent, $section)
+{
+    // Ensure a blank line before the section
+    if (strpos($zoneContent, "; {$section}") === false) {
+        // Add a blank line before the section
+        $zoneContent .= "\n; {$section}\n";
+    } else {
+        // Add a blank line if not already present
+        $zoneContent = preg_replace("/(; {$section})(.*?)(?=\n;|\z)/s", "\n$0", $zoneContent);
+    }
+
+    return $zoneContent;
+}
+
+private function addRecordToSection($zoneContent, $recordType, $recordLine)
+{
+    $section = strtoupper($recordType) . " Records";
+    if (strpos($zoneContent, "; {$section}") !== false) {
+        // Ensure a blank line between records in the section
+        $zoneContent = preg_replace_callback("/(; {$section})(.*?)(?=\n;|\z)/s", function ($matches) use ($recordLine) {
+            return $matches[0] . "\n" . $recordLine;
+        }, $zoneContent);
+    } else {
+        // If the section doesn't exist, create it and add the record
+        $zoneContent .= "\n; {$section}\n" . $recordLine;
+    }
+
+    return $zoneContent;
+}
+
 
 
 

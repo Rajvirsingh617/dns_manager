@@ -12,7 +12,7 @@ services:
       - db
     volumes:
       - ./laravel:/var/www/html
-      - ./coredns:/etc/coredns
+      - ./laravel/storage/app/coredns:/etc/coredns
 
   db:
     image: mysql:latest

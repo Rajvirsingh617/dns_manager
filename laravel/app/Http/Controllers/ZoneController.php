@@ -285,13 +285,7 @@ IN      NS      ns2." . $zone->name . ".
         return redirect()->route('zones.index')->with('success', 'Zone updated successfully!');
     }
 
-    public function showNameServers()
-    {
-        // Retrieve all name servers from the database
-        $nameServers = Zone::all(); // Adjust the model if needed (e.g., use a dedicated NameServer model)
-
-        return view('name-servers', compact('nameServers'));
-    }
+    
 
 
     public function updateRecords(Request $request, $zoneId)

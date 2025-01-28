@@ -2,41 +2,69 @@
 
 @section('content')
 <div class="container">
-    <h1 class="mb-4">Name Servers</h1>
+    <h1 class="mb-4">Manage Name Servers123</h1>
 
-    @if($nameServers->isEmpty())
-        <p>No name servers found.</p>
-    @else
-        <table class="table table-bordered">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>IP Address</th>
-                    <th>Created At</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach ($nameServers as $server)
-                    <tr>
-                        <td>{{ $server->id }}</td>
-                        <td>{{ $server->name }}</td>
-                        <td>{{ $server->ip_address }}</td>
-                        <td>{{ $server->created_at }}</td>
-                        <td>
-                            <a href="{{ route('zones.show', $server->id) }}" class="btn btn-info btn-sm">View</a>
-                            <a href="{{ route('zones.editzone', $server->id) }}" class="btn btn-warning btn-sm">Edit</a>
-                            <form action="{{ route('zones.destroy', $server->id) }}" method="POST" style="display:inline-block;">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure?')">Delete</button>
-                            </form>
-                        </td>
-                    </tr>
-                @endforeach
-            </tbody>
-        </table>
-    @endif
+    <div class="card">
+        <div class="card-body">
+            <form action="{{ route('name-servers.store') }}" method="POST" id="name-server-form">
+                @csrf
+                @method('PUT')
+
+                <div class="table-responsive">
+                    <table class="table table-bordered" id="name-server-table">
+                        <thead>
+                            <tr>
+                                <th>No.</th>
+                                <th>Host Name</th>
+                                <th>IP Address</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($nameServers as $index => $server)
+                                <tr>
+                                    <td>{{ $index + 1 }}</td>
+                                    <td>
+                                        <input type="text" name="name_servers[{{ $server->id }}][name]" class="form-control" value="{{ $server->name }}" readonly>
+                                    </td>
+                                    <td>
+                                        <input type="text" name="name_servers[{{ $server->id }}][ip_address]" class="form-control" value="{{ $server->ip_address }}">
+                                    </td>
+                                    <td>
+                                        <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                                        <a href="{{ route('name-servers.destroy', $server->id) }}" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure?')">Delete</a>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </form>
+            <button class="btn btn-info mt-3" id="add-more-btn">Add More</button>
+        </div>
+    </div>
 </div>
+
+<script>
+    document.getElementById('add-more-btn').addEventListener('click', function() {
+        const table = document.getElementById('name-server-table').getElementsByTagName('tbody')[0];
+        const rowCount = table.rows.length + 1; // Get next row number
+
+        // Create new row
+        const row = table.insertRow();
+        row.innerHTML = `
+            <td>${rowCount}</td>
+            <td>
+                <input type="text" name="name_servers[new][${rowCount}][name]" class="form-control" placeholder="Eg. ns1.example.com">
+            </td>
+            <td>
+                <input type="text" name="name_servers[new][${rowCount}][ip_address]" class="form-control" placeholder="Eg. 192.168.1.1">
+            </td>
+            <td>
+                <button type="submit" class="btn btn-success btn-sm">Save</button>
+            </td>
+        `;
+    });
+</script>
+
 @endsection

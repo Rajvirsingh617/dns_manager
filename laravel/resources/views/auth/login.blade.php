@@ -61,7 +61,7 @@
 <body>
     <div class="login-card">
         <h2 style="text-align: center; margin-bottom: 20px; background-color: #007bff; color: white; padding: 10px; border-radius: 8px; border: 2px solid #0056b3;">
-            Login
+            Login123
         </h2>
         <!-- Display validation errors if any -->
         @if ($errors->any())
@@ -92,7 +92,7 @@
         </form>
         <div class="mt-3 text-center">
             <strong><a href="/resetpassword">Forgot Password ?</a></strong> |
-            <strong><a href="/">Create an account</a></strong>
+            <strong><a href="/register">Create an account</a></strong>
         </div>
 
     </div>

@@ -345,7 +345,7 @@
                         @auth
             @if (Auth::user()->role === 'admin')
                 <li class="nav-item">
-                    <a class="nav-link" href="{{ route('name.servers') }}">
+                    <a class="nav-link" href="{{ route('name-servers.index') }}">
                         <i class="fa-solid fa-server"></i>
                         <span>Name Server</span>
                     </a>

@@ -6,14 +6,16 @@ use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\ZoneController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\NameServerController;
 
 /* Route::get('/', function () {
     return view('welcome');
 }); */
 
-Route::get('/', [RegisterController::class, 'showRegisterForm']);
+Route::get('/register', [RegisterController::class, 'showRegisterForm'])->name('register');
+Route::get('/', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/register', [RegisterController::class, 'store']);
-Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
+/* Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login'); */
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::get('/reset-password', [AuthController::class, 'showResetPasswordForm'])->name('password.reset');
@@ -46,7 +48,8 @@ Route::middleware('auth')->group(function () {
     Route::put('/zones/{id}', [ZoneController::class, 'update'])->name('zones.update');
     Route::delete('/records/{id}', [ZoneController::class, 'destroy'])->name('zones.destroy');
     //name server
-    Route::get('/name-servers', [ZoneController::class, 'showNameServers'])->name('name.servers');
+    Route::resource('name-servers', NameServerController::class);
+    /* Route::get('/name-servers', [ZoneController::class, 'showNameServers'])->name('name.servers'); */
     });
 
 

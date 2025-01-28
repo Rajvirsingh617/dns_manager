@@ -47,7 +47,7 @@ services:
     image: coredns/coredns:latest
     container_name: dns-coredns
     volumes:
-      - ./coredns:/etc/coredns
+      - ./laravel/storage/app/coredns:/etc/coredns
     restart: always
     ports:
       - "53:53/udp"

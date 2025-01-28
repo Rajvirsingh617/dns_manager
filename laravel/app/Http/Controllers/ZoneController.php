@@ -60,7 +60,7 @@ class ZoneController extends Controller
 
         // Check if the zone already exists
         $existingZone = Zone::where('name', $request->name)->first();
-        if ($existingZone){
+        if ($existingZone) {
             return back()->with('error', 'The zone already exists in the database.');
         }
 
@@ -74,9 +74,6 @@ class ZoneController extends Controller
         $zone->ttl = $request->ttl;
         $zone->pri_dns = $request->pri_dns;
         $zone->sec_dns = $request->sec_dns;
-        $zone->www = $request->www;
-        $zone->mail = $request->mail;
-        $zone->ftp = $request->ftp;
         $zone->owner = auth()->user()->isAdmin() && $request->user_id ? $request->user_id : Auth::id();
         $zone->save();
 
@@ -92,25 +89,25 @@ class ZoneController extends Controller
         $zoneContent = "
 \$TTL {$zone->ttl}
 @       IN      SOA     {$zone->pri_dns}. admin.{$zone->name}. (
-                        {$serial}        ; Serial
-                        {$zone->refresh} ; Refresh
-                        {$zone->retry}   ; Retry
-                        {$zone->expire}  ; Expire
-                        {$zone->ttl}     ; Minimum TTL
+                    {$serial}        ; Serial
+                    {$zone->refresh} ; Refresh
+                    {$zone->retry}   ; Retry
+                    {$zone->expire}  ; Expire
+                    {$zone->ttl}     ; Minimum TTL
 )
 ; Name Servers
 @       IN      NS      {$zone->pri_dns}.
 @       IN      NS      {$zone->sec_dns}.
-    ";
+";
 
-        // Handle records
+        // Handle records from request
         $records = $request->get('records', []); // Ensure it's an array
         if (empty($records)) {
             // Generate default records if none are provided
             $records = [
-                ['host' => '@', 'type' => 'A', 'destination' => $zone->www],
-                ['host' => 'ftp', 'type' => 'A', 'destination' => $zone->ftp],
-                ['host' => 'mail', 'type' => 'A', 'destination' => $zone->mail],
+                ['host' => '@', 'type' => 'A', 'destination' => '192.168.1.10'],
+                ['host' => 'ftp', 'type' => 'A', 'destination' => '2001:0db8:85a3:0000:0000:8a2e:0370:7334'],
+                ['host' => 'mail', 'type' => 'A', 'destination' => '192.168.1.20'],
                 ['host' => 'www', 'type' => 'CNAME', 'destination' => '@'],
                 ['host' => '@', 'type' => 'MX', 'destination' => 'mail.' . $zone->name, 'priority' => 10],
             ];
@@ -149,12 +146,17 @@ class ZoneController extends Controller
 
 
 
+
+
     public function create()
-    {
-        // Return the create zone view
-        $users = User::where('role', '!=', 'admin')->get();
-        return view('zones.newzone', compact('users'));
-    }
+{
+    // Get all users grouped by role
+    $admins = User::where('role', 'admin')->get(); // Get all admin users
+    $users = User::where('role', '!=', 'admin')->get(); // Get all non-admin users
+
+    return view('zones.newzone', compact('users', 'admins'));
+}
+
 
     public function destroy($id)
     {
@@ -292,86 +294,71 @@ IN      NS      ns2." . $zone->name . ".
     }
 
 
-    public function updateRecords(Request $request, $id)
-    {
-        // Find the Zone by its ID
-        $zone = Zone::findOrFail($id);
+    public function updateRecords(Request $request, $zoneId)
+{
+    // Get the zone and validate the user permission
+    $zone = Zone::findOrFail($zoneId);
 
-        if ($request->has('host')) {
-            foreach ($request->host as $key => $host) {
-                $type = $request->type[$key];
-                $destination = $request->destination[$key];
-
-                // Validation rules for each record
-                $validator = Validator::make([
-                    'host' => $host,
-                    'type' => $type,
-                    'destination' => $destination,
-                ], [
-                    'host' => ['required', 'string', 'regex:/^([a-zA-Z0-9-]+\\.)*[a-zA-Z0-9-]+$/'],
-                    'type' => ['required', 'in:A,A6,AAAA,CNAME,AFSDB,DNAME,DS,LOC,MX,NAPTR,NS,PTR,RP,SRV,SSHFP,TXT,WKS'],
-                    'destination' => $this->getDestinationValidationRule($type),
-                ]);
-
-                // If validation fails, skip this record
-                if ($validator->fails()) {
-                    if ($request->newtype == 'MX' && strpos($request->newdestination, ' ') === false) {
-                        // Assume MX records must have a priority and domain (e.g., "10 mail.anil.com")
-                        $request->newdestination = '10 ' . $request->newdestination;
-                    }
-                }
-
-                $record = $zone->records()->find($request->record_id[$key]);
-                if ($record) {
-                    $record->update([
-                        'host' => $host,
-                        'type' => $type,
-                        'destination' => $destination,
-                    ]);
-
-                    // Handle deletion if checkbox is checked
-                    if (isset($request->delete[$key])) {
-                        $record->delete();
-                    }
-                }
+    // Handle deletion of records
+    if ($request->has('delete')) {
+        foreach ($request->delete as $recordId => $value) {
+            if ($value) {
+                $zone->records()->where('id', $recordId)->delete();
             }
         }
-
-        // Add new record if provided
-        if ($request->filled(['newhost', 'newtype', 'newdestination'])) {
-            // Check if a record already exists with the same host, type, and destination to avoid duplicates
-            $existingRecord = $zone->records()->where('host', $request->newhost)
-                ->where('type', $request->newtype)
-                ->where('destination', $request->newdestination)
-                ->first();
-
-            // If a record already exists, don't store it
-            if (!$existingRecord) {
-                // Validation for new record
-                $validator = Validator::make([
-                    'host' => $request->newhost,
-                    'type' => $request->newtype,
-                    'destination' => $request->newdestination,
-                ], [
-                    'host' => ['required', 'string', 'regex:/^([a-zA-Z0-9-]+\\.)*[a-zA-Z0-9-]+$/'],
-                    'type' => ['required', 'in:A,AAAA,CNAME,DNAME,AFSDB,DS,LOC,MX,NAPTR,NS,PTR,RP,SRV,SSHFP,TXT,WKS'],
-                    'destination' => $this->getDestinationValidationRule($request->newtype),
-                ]);
-
-                if ($validator->passes()) {
-                    $zone->records()->create([
-                        'host' => $request->newhost,
-                        'type' => $request->newtype,
-                        'destination' => $request->newdestination,
-                    ]);
-                }
-            }
-        }
-
-        $this->updateZoneFile($zone);
-
-        return back()->with('success', 'Zone updated successfully!');
     }
+
+    // Handle updates of records
+    foreach ($request->record_id as $key => $recordId) {
+        $record = $zone->records()->findOrFail($recordId);
+        $record->update([
+            'host' => $request->host[$key],
+            'type' => $request->type[$key],
+            'destination' => $request->destination[$key],
+        ]);
+    }
+
+    // Handle new record creation
+    if ($request->has('newhost')) {
+        // Create new record in the database
+        $newRecord = $zone->records()->create([
+            'host' => $request->newhost,
+            'type' => $request->newtype,
+            'destination' => $request->newdestination,
+        ]);
+
+        // Now update the zone file at the specified location
+        $username = auth()->user()->username;
+        $directory = "/var/www/html/storage/app/coredns/zones/" . $username;
+        if (!file_exists($directory)) {
+            mkdir($directory, 0755, true);
+        }
+
+        $filename = $directory . "/" . $zone->name . ".zone";
+
+        // Get the existing content of the zone file
+        $zoneContent = file_get_contents($filename);
+
+        // Check if the label for this record type exists, if not, add it
+        $recordType = strtoupper($newRecord->type); // A, CNAME, MX, etc.
+        if (strpos($zoneContent, "; {$recordType} Records") === false) {
+            $zoneContent .= "\n; {$recordType} Records\n";
+        }
+
+        // Check if the record already exists to avoid duplicates
+        $recordLine = "{$newRecord->host}    IN    {$newRecord->type}    {$newRecord->destination}\n";
+        if (strpos($zoneContent, $recordLine) === false) {
+            // Add the new record only if it does not already exist
+            $zoneContent .= $recordLine;
+        }
+
+        // Save the updated zone file
+        file_put_contents($filename, $zoneContent);
+    }
+
+    return redirect()->route('zones.edit', $zoneId)->with('success', 'Records updated successfully!');
+}
+
 
 
     private function getDestinationValidationRule($type)
@@ -494,6 +481,8 @@ IN      NS      ns2." . $zone->name . ".
 
         return "Zone file updated successfully.";
     }
+
+
 
 
     public function indexApi(Request $request)

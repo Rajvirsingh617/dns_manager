@@ -49,12 +49,23 @@
                                     <div class="col-sm-8">
                                         <select id="user_id" name="user_id" class="form-control">
                                             <option value="">Select User</option>
-                                            @foreach($users as $user)
-                                                <option value="{{ $user->id }}"
-                                                    {{ old('user_id') == $user->id ? 'selected' : '' }}>
-                                                    {{ $user->username }}
-                                                </option>
-                                            @endforeach
+                                            <optgroup label="Admins">
+                                                @foreach($admins as $admin)
+                                                    <option value="{{ $admin->id }}"
+                                                        {{ old('user_id') == $admin->id ? 'selected' : '' }}>
+                                                        {{ $admin->username }}
+                                                    </option>
+                                                @endforeach
+                                            </optgroup>
+
+                                            <optgroup label="Users">
+                                                @foreach($users as $user)
+                                                    <option value="{{ $user->id }}"
+                                                        {{ old('user_id') == $user->id ? 'selected' : '' }}>
+                                                        {{ $user->username }}
+                                                    </option>
+                                                @endforeach
+                                            </optgroup>
                                         </select>
                                     </div>
                                 </div>

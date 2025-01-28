@@ -1,0 +1,37 @@
+$ORIGIN anildollor2.com.
+$TTL 3600 ; 1 hour
+
+; SOA Record
+@   IN  SOA ns1.anildollor2.com. admin.anildollor2.com. (
+        2025012701 ; Serial (YYYYMMDDNN)
+        3600       ; Refresh (1 hour)
+        1800       ; Retry (30 minutes)
+        1209600    ; Expire (2 weeks)
+        86400      ; Minimum TTL (1 day)
+)
+
+; NS Records
+
+; A Records
+
+; AAAA Records
+
+; CNAME Records
+
+; MX Records
+
+; TXT Records
+
+; SRV Records
+
+; PTR Records (Reverse Lookup)
+
+; SPF Records
+
+; NAPTR Records
+
+; HINFO Records
+
+; SSHFP Records
+
+; Example DS Record (for DNSSEC)

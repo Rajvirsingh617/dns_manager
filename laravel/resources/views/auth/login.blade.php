@@ -61,7 +61,7 @@
 <body>
     <div class="login-card">
         <h2 style="text-align: center; margin-bottom: 20px; background-color: #007bff; color: white; padding: 10px; border-radius: 8px; border: 2px solid #0056b3;">
-            Login123
+            Login
         </h2>
         <!-- Display validation errors if any -->
         @if ($errors->any())

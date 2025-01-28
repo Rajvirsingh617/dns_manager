@@ -29,18 +29,25 @@ class NameServerController extends Controller
      * Store a newly created resource in storage.
      */
     public function store(Request $request)
-    {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'ip_address' => 'required|ip',
-        ]);
+{
+    dd($request->all());
+    // Validate the input data
+    $validatedData = $request->validate([
+        'name_servers.*.name' => 'required|string|max:255',
+        'name_servers.*.ip_address' => 'required|ip',
+    ]);
 
+    // Loop through the submitted name servers and create them
+    foreach ($validatedData['name_servers'] as $serverData) {
         NameServer::create([
-            'name' => $request->name,
-            'ip_address' => $request->ip_address,
+            'name' => $serverData['name'],
+            'ip_address' => $serverData['ip_address'],
         ]);
-        return redirect()->route('name-servers.index')->with('success', 'Name Server created successfully');
     }
+
+    return redirect()->route('name-servers.index')->with('success', 'Name Servers created successfully');
+}
+
 
 
     /**

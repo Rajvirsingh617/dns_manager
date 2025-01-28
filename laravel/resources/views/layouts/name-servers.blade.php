@@ -2,14 +2,13 @@
 
 @section('content')
 <div class="container">
-    <h1 class="mb-4">Manage Name Servers123</h1>
+    <h1 class="mb-4">Manage Name Servers</h1>
 
     <div class="card">
         <div class="card-body">
             <form action="{{ route('name-servers.store') }}" method="POST" id="name-server-form">
                 @csrf
-                @method('PUT')
-
+                
                 <div class="table-responsive">
                     <table class="table table-bordered" id="name-server-table">
                         <thead>

@@ -105,7 +105,7 @@
                 <button type="submit" class="btn btn-primary w-100">Sign In</button>
             </form>
         <div class="login-link">
-        <strong><a href="/login">Click here to Login</a></strong>
+        <strong><a href="/">Click here to Login</a></strong>
         </div>
     </div>
 

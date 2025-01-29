@@ -48,8 +48,16 @@ Route::middleware('auth')->group(function () {
     Route::put('/zones/{id}', [ZoneController::class, 'update'])->name('zones.update');
     Route::delete('/records/{id}', [ZoneController::class, 'destroy'])->name('zones.destroy');
     //name server
-    Route::resource('name-servers', NameServerController::class);
-    /* Route::get('/name-servers', [ZoneController::class, 'showNameServers'])->name('name.servers'); */
+    /*  Route::resource('name-servers', NameServerController::class);  */
+    Route::get('name-servers', [NameServerController::class, 'index'])->name('name-servers.index');
+    Route::get('name-servers/create', [NameServerController::class, 'create'])->name('name-servers.create');
+    Route::post('name-servers', [NameServerController::class, 'store'])->name('name-servers.store');
+    Route::get('name-servers/{name_server}', [NameServerController::class, 'show'])->name('name-servers.show');
+    Route::get('name-servers/{name_server}/edit', [NameServerController::class, 'edit'])->name('name-servers.edit');
+    Route::patch('name-servers/{name_server}', [NameServerController::class, 'update'])->name('name-servers.update');
+    Route::delete('name-servers/{name_server}', [NameServerController::class, 'destroy'])->name('name-servers.destroy');
+
+
     });
 
 

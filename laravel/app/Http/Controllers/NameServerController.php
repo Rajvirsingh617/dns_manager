@@ -28,12 +28,20 @@ class NameServerController extends Controller
         'name' => 'required|string|max:255',  // Hostname (e.g., ns1.rajvirsingh.com)
         'ip_address' => 'required|ip',        // IP Address (e.g., 192.168.1.1)
     ]);
+    $existingServer = NameServer::where('name', $request->name)->first();
 
+    if ($existingServer) {
+        // If the hostname already exists, return an error message
+        return response()->json([
+            'success' => false,
+            'message' => 'The hostname already exists.'
+        ]);
+    }
     // Create the NameServer in the database
-    $nameServer = NameServer::create([
-        'name' => $request->name,
-        'ip_address' => $request->ip_address,
-    ]);
+    $nameServer = new NameServer(); // Create a new instance of NameServer
+    $nameServer->name = $request->name;
+    $nameServer->ip_address = $request->ip_address;
+    $nameServer->save();
 
 
     $hostname = $nameServer->name;
@@ -43,19 +51,19 @@ class NameServerController extends Controller
     $domain = implode('.', array_slice($parts, -2)); // Take the last two parts, e.g., 'rajvirsingh.com'
 
     // Generate the content for the .zone file
-    $zoneContent = "
-    \$TTL 3600
-    @   IN  SOA ns1.{$nameServer->name}. admin.{$domain}. (
-            2024012801 ; Serial
-            3600       ; Refresh
-            1800       ; Retry
-            1209600    ; Expire
-            3600 )     ; Minimum TTL
+$zoneContent = "
+\$TTL 3600
+@   IN  SOA {$nameServer->name}. admin.{$domain}. (
+        2024012801 ; Serial
+        3600       ; Refresh
+        1800       ; Retry
+        1209600    ; Expire
+        3600 )     ; Minimum TTL
 
-    IN  NS  ns1.{$nameServer->name}.
-    
-    ns1 IN  A   {$nameServer->ip_address}
-    ";
+    IN  NS  {$nameServer->name}.
+
+ IN  A   {$nameServer->ip_address}
+";
 
     // Determine the filename as <domain>.zone (e.g., rajvirsingh.com.zone)
     $filename = storage_path("app/{$domain}.zone");
@@ -69,9 +77,6 @@ class NameServerController extends Controller
         'message' => 'Name Server created successfully and zone file generated.'
     ]);
 }
-
-
-
 
 
     public function show(string $id)

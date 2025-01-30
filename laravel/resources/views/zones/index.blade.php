@@ -23,13 +23,12 @@
     </div>
     <div class="custom-box" style="margin-bottom: 50px; margin-left: 10px; border-left: 5px solid #007bff; padding-top: 5px;">
         <h5><i class="icon fas fa-info"></i> You need to set your domain nameservers to:</h5>
-        
+
         <ul class="gray-background">
-            <li>ns1.centos-webpanel.com</li>
-            <li>ns2.centos-webpanel.com</li>
-            <li>ns3.centos-webpanel.com</li>
-            <li>ns4.centos-webpanel.com</li>
-            <li>ns5.centos-webpanel.com</li>
+            @foreach($zones as $zone)
+            <li>{{ $zone->pri_dns }}</li>
+            <li>{{ $zone->sec_dns }}</li>
+        @endforeach
         </ul>
     </div>
     <div class="form-group">
@@ -66,7 +65,7 @@
                     <th>Delete</th>
                 </tr>
             </thead>
-            
+
                 </thead>
                 <tbody>
                     @foreach($zones as $index => $zone)
@@ -79,7 +78,7 @@
                             </a>
                         </td>
                         <td>{{ $zone->id }}</td>
-                        <td>{{ $zone->user->username ?? 'N/A' }}</td> 
+                        <td>{{ $zone->user->username ?? 'N/A' }}</td>
                         <td>
                             <span class="right badge badge-success"><i class="fa fa-check-circle"></i></span>
                         </td>
@@ -100,9 +99,9 @@
                     </tr>
                     @endforeach
                 </tbody>
-                
+
             </table>
-          
+
             <div class="col-sm-12 col-md-7">
                 <div class="dataTables_paginate paging_simple_numbers" id="table_zone_paginate">
                   <ul class="pagination">

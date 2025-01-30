@@ -153,8 +153,8 @@ class ZoneController extends Controller
     // Get all users grouped by role
     $admins = User::where('role', 'admin')->get(); // Get all admin users
     $users = User::where('role', '!=', 'admin')->get(); // Get all non-admin users
-
-    return view('zones.newzone', compact('users', 'admins'));
+    $zones = Zone::all();
+    return view('zones.newzone', compact('users', 'admins','zones'));
 }
 
 
@@ -195,7 +195,7 @@ class ZoneController extends Controller
             file_put_contents($corefilePath, $updatedCorefileContent);
         }
         session()->flash('success', 'Zone and related files deleted successfully!');
-        dd(session()->all());
+       //dd(session()->all());
         // Redirect back with a success message
         return redirect()->route('zones.index')->with('success', 'Zone and related files deleted successfully!');
     }
@@ -285,7 +285,7 @@ IN      NS      ns2." . $zone->name . ".
         return redirect()->route('zones.index')->with('success', 'Zone updated successfully!');
     }
 
-    
+
 
 
     public function updateRecords(Request $request, $zoneId)

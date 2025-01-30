@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\NameServer;
+use Illuminate\Support\Facades\Log;
 
 
 class NameServerController extends Controller
@@ -22,62 +23,84 @@ class NameServerController extends Controller
     }
 
 
+
     public function store(Request $request)
-{
-    $request->validate([
-        'name' => 'required|string|max:255',  // Hostname (e.g., ns1.rajvirsingh.com)
-        'ip_address' => 'required|ip',        // IP Address (e.g., 192.168.1.1)
-    ]);
-    $existingServer = NameServer::where('name', $request->name)->first();
+    {
+        // Define validation rules
+        $rules = [
+            'new.nameserver_name' => 'required|unique:nameservers,nameserver_name',
+            'new.host' => 'required',
+            'new.ip_address' => 'required|ip',
+            'new.ttl' => 'required|integer|min:60',
+        ];
 
-    if ($existingServer) {
-        // If the hostname already exists, return an error message
-        return response()->json([
-            'success' => false,
-            'message' => 'The hostname already exists.'
-        ]);
+        $messages = [
+            'new.nameserver_name.required' => 'The nameserver name is required.',
+            'new.nameserver_name.unique' => 'This nameserver name already exists.',
+            'new.host.required' => 'The host name is required.',
+            'new.ip_address.required' => 'The IP address is required.',
+            'new.ip_address.ip' => 'Please enter a valid IP address.',
+            'new.ttl.required' => 'The TTL value is required.',
+            'new.ttl.integer' => 'TTL must be a valid integer.',
+            'new.ttl.min' => 'TTL must be at least 60 seconds.',
+        ];
+
+        $request->validate($rules, $messages);
+
+        if ($request->has('save_id')) {
+            // Update existing record
+            $server = NameServer::findOrFail($request->save_id);
+            $server->update($request->name_servers[$server->id]);
+        
+
+        } elseif ($request->has('add')) {
+            // Create new record
+            $server = NameServer::create($request->new);
+
+            $domain = $server->host;
+            $filePath = storage_path("app/coredns/{$domain}.zone");
+
+            // Fetch all name servers for the given domain
+            $nameServers = NameServer::where('host', $domain)->get();
+
+            // Determine the primary nameserver for SOA
+            $primaryNS = $nameServers->first()->nameserver_name ?? $server->nameserver_name;
+            $adminEmail = "admin.{$domain}.";
+
+            // Constructing the zone file
+            $zoneContent = "";
+            $zoneContent .= "\$TTL 3600\n";
+            $zoneContent .= "@   IN  SOA {$primaryNS}. {$adminEmail} (\n";
+            $zoneContent .= "            2024012801 ; Serial\n";
+            $zoneContent .= "            3600       ; Refresh\n";
+            $zoneContent .= "            1800       ; Retry\n";
+            $zoneContent .= "            1209600    ; Expire\n";
+            $zoneContent .= "            3600 )     ; Minimum TTL\n\n";
+
+            // Append NS records first
+            foreach ($nameServers as $ns) {
+                $zoneContent .= "     IN  NS  {$ns->nameserver_name}.\n";
+            }
+            $zoneContent .= "\n";
+
+            // Append A records for each nameserver in the desired order
+            foreach ($nameServers as $ns) {
+                // Get the hostname from the nameserver name
+                $hostname = explode('.', $ns->nameserver_name)[0];
+                $zoneContent .= "{$hostname}  IN  A   {$ns->ip_address}\n";
+            }
+
+            // Ensure directory exists
+            if (!file_exists(storage_path('app/coredns'))) {
+                mkdir(storage_path('app/coredns'), 0777, true);
+            }
+
+            // Save the updated zone file
+            file_put_contents($filePath, $zoneContent);
+        }
+
+        return redirect()->route('name-servers.index')->with('success', 'Changes saved.');
     }
-    // Create the NameServer in the database
-    $nameServer = new NameServer(); // Create a new instance of NameServer
-    $nameServer->name = $request->name;
-    $nameServer->ip_address = $request->ip_address;
-    $nameServer->save();
-
-
-    $hostname = $nameServer->name;
-
-    // Split the hostname into parts and take the last two parts as the domain
-    $parts = explode('.', $hostname);
-    $domain = implode('.', array_slice($parts, -2)); // Take the last two parts, e.g., 'rajvirsingh.com'
-
-    // Generate the content for the .zone file
-$zoneContent = "
-\$TTL 3600
-@   IN  SOA {$nameServer->name}. admin.{$domain}. (
-        2024012801 ; Serial
-        3600       ; Refresh
-        1800       ; Retry
-        1209600    ; Expire
-        3600 )     ; Minimum TTL
-
-    IN  NS  {$nameServer->name}.
-
- IN  A   {$nameServer->ip_address}
-";
-
-    // Determine the filename as <domain>.zone (e.g., rajvirsingh.com.zone)
-    $filename = storage_path("app/{$domain}.zone");
-
-    // Create and write the .zone file to storage
-    file_put_contents($filename, $zoneContent);
-
-    return response()->json([
-        'success' => true,
-        'id' => $nameServer->id,
-        'message' => 'Name Server created successfully and zone file generated.'
-    ]);
-}
-
 
     public function show(string $id)
     {
@@ -96,20 +119,39 @@ $zoneContent = "
 {
     $server = NameServer::findOrFail($id);
     $server->update([
-        'name' => $request->name,
+        'nameserver_name' => $request->nameserver_name,
         'ip_address' => $request->ip_address,
+        'host' => $request->host,
+        'ttl' => $request->ttl,
     ]);
+
 
     return response()->json(['success' => true, 'message' => 'Name Server updated successfully']);
 }
 
 public function destroy($id)
 {
+    // Find the record
     $server = NameServer::findOrFail($id);
+    $domain = $server->host;
+
+    // Delete the record from the database
     $server->delete();
 
-    return redirect()->route('name-servers.index')->with('success', 'Name Server deleted successfully');
+    // Construct the file path
+    $filePath = storage_path("app/coredns/{$domain}.zone");
+
+    // Delete the file if it exists
+    if (file_exists($filePath)) {
+        unlink($filePath);
+    }
+
+    return redirect()->route('name-servers.index')->with('success', 'Record and associated file deleted.');
 }
+
+
+
+
 
 
 }

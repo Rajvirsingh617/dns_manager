@@ -10,5 +10,8 @@ class NameServer extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'ip_address'];
+    protected $fillable = ['nameserver_name', 'ip_address', 'host', 'ttl'];
+
+    // Specify the table name
+    protected $table = 'nameservers'; // This should match the table name in the migration
 }

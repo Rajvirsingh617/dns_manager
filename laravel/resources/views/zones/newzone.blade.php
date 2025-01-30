@@ -21,11 +21,10 @@
                             style="margin-bottom: 50px; margin-left: 20px; border-left: 5px solid #007bff; padding-top: 15px;">
                             <h5><i class="icon fas fa-info"></i> You need to set your domain nameservers to:</h5>
                             <ul class="gray-background">
-                                <li>ns1.centos-webpanel.com</li>
-                                <li>ns2.centos-webpanel.com</li>
-                                <li>ns3.centos-webpanel.com</li>
-                                <li>ns4.centos-webpanel.com</li>
-                                <li>ns5.centos-webpanel.com</li>
+                                @foreach($zones as $zone)
+                                    <li>{{ $zone->pri_dns }}</li>
+                                    <li>{{ $zone->sec_dns }}</li>
+                                @endforeach
                             </ul>
                         </div>
 

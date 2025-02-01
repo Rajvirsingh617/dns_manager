@@ -35,10 +35,10 @@ class RegisterController extends Controller
             'password' => Hash::make($request->password),  // Hash the password before storing
             ]);
 
-            $userDirectory = "/var/www/html/storage/app/coredns/zones/" . $request->username;
-            if (!file_exists($userDirectory)) {
-                mkdir($userDirectory, 0777, true);  // Create the directory if it doesn't exist
-            }
+            // $userDirectory = "/var/www/html/storage/app/coredns/zones/" . $request->username;
+            // if (!file_exists($userDirectory)) {
+            //     mkdir($userDirectory, 0777, true);  // Create the directory if it doesn't exist
+            // }
 
         // Redirect to login page after successful registration
         return redirect('/login')->with('success', 'Registration successful! Please log in.');

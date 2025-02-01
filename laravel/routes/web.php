@@ -7,13 +7,14 @@ use App\Http\Controllers\ZoneController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\NameServerController;
+use App\Http\Controllers\CommitChangesController;
 
 /* Route::get('/', function () {
     return view('welcome');
 }); */
 
 Route::get('/register', [RegisterController::class, 'showRegisterForm'])->name('register');
-Route::get('/', [AuthController::class, 'showLoginForm'])->name('login');
+Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/register', [RegisterController::class, 'store']);
 /* Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login'); */
 Route::post('/login', [AuthController::class, 'login']);
@@ -24,13 +25,11 @@ Route::get('/reset-password', [AuthController::class, 'showResetPasswordForm'])-
 // Route to handle the password reset request
 Route::post('/reset-password update', [AuthController::class, 'resetPassword'])->name('password.update');
 
-Route::get('/commit-changes', function () {
-    return view('layouts.commit-changes');
-})->name('commit.changes');
+Route::get('/commit-changes', [CommitChangesController::class, 'index'])->name('commit.changes');
+Route::get('/reload', [CommitChangesController::class, 'reload'])->name('commit.reload');
 
 Route::middleware('auth')->group(function () {
     // Dashboard
-
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Change Password

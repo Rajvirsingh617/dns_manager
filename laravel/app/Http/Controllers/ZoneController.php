@@ -9,11 +9,20 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\User;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+
 
 
 class ZoneController extends Controller
 {
+    protected $dns_url;
+
+    public function __construct()
+    {
+        // Initialize the DNS URL from environment configuration
+        $this->dns_url = env('DNS_APP_URL');
+    }
 
     public function index()
     {
@@ -79,57 +88,70 @@ class ZoneController extends Controller
 
         // Prepare zone file
         $username = auth()->user()->username;
-        $directory = "/var/www/html/storage/app/coredns/zones/" . $username;
+        $directory = "/var/www/html/storage/app/coredns/zones/";
         if (!file_exists($directory)) {
             mkdir($directory, 0755, true);
         }
 
-        $filename = $directory . "/" . $request->name . ".zone";
-        $serial = date('Ymd') . '01';
-        $zoneContent = "
-\$TTL {$zone->ttl}
-@       IN      SOA     {$zone->pri_dns}. admin.{$zone->name}. (
-                    {$serial}        ; Serial
-                    {$zone->refresh} ; Refresh
-                    {$zone->retry}   ; Retry
-                    {$zone->expire}  ; Expire
-                    {$zone->ttl}     ; Minimum TTL
-)
-; Name Servers
-@       IN      NS      {$zone->pri_dns}.
-@       IN      NS      {$zone->sec_dns}.
-";
+        // Prepare zone file
+$filename = $directory . "/" . $request->name . ".db";
+$serial = date('Ymd') . '01';
+$zoneContent = "\$ORIGIN {$zone->name}.\n";
+$zoneContent .= "\$TTL {$zone->ttl} ; Default TTL\n\n";
 
-        // Handle records from request
-        $records = $request->get('records', []); // Ensure it's an array
-        if (empty($records)) {
-            // Generate default records if none are provided
-            $records = [
-                ['host' => '@', 'type' => 'A', 'destination' => '192.168.1.10'],
-                ['host' => 'ftp', 'type' => 'A', 'destination' => '2001:0db8:85a3:0000:0000:8a2e:0370:7334'],
-                ['host' => 'mail', 'type' => 'A', 'destination' => '192.168.1.20'],
-                ['host' => 'www', 'type' => 'CNAME', 'destination' => '@'],
-                ['host' => '@', 'type' => 'MX', 'destination' => 'mail.' . $zone->name, 'priority' => 10],
-            ];
-        }
+// SOA Record
+$zoneContent .= "; SOA Record\n";
+$zoneContent .= "@   IN  SOA {$zone->pri_dns}. admin.{$zone->name}. (\n";
+$zoneContent .= sprintf("        %-10s ; Serial (YYYYMMDDNN)\n", $serial);
+$zoneContent .= sprintf("        %-10s ; Refresh (%d seconds)\n", $zone->refresh, $zone->refresh);
+$zoneContent .= sprintf("        %-10s ; Retry (%d seconds)\n", $zone->retry, $zone->retry);
+$zoneContent .= sprintf("        %-10s ; Expire (%d seconds)\n", $zone->expire, $zone->expire);
+$zoneContent .= sprintf("        %-10s ; Minimum TTL (%d seconds)\n", $zone->ttl, $zone->ttl);
+$zoneContent .= ")\n\n";
+// NS Records
+$zoneContent .= "; NS Records\n";
+$zoneContent .= "@   IN  NS  {$zone->pri_dns}.\n";
+$zoneContent .= "@   IN  NS  {$zone->sec_dns}.\n";
 
-        // Group records by type and add headings
-        $recordTypes = [];
-        foreach ($records as $record) {
-            $type = $record['type'];
-            $recordTypes[$type][] = $record;
-        }
+// Ensure $records is always an array
+$records = $request->get('records', []);
 
-        foreach ($recordTypes as $type => $groupedRecords) {
-            $zoneContent .= "\n; {$type} Records\n"; // Heading
-            foreach ($groupedRecords as $record) {
-                $priority = ($type === 'MX' || $type === 'SRV') && isset($record['priority']) ? "{$record['priority']} " : '';
-                $zoneContent .= "{$record['host']}    IN    {$type}    {$priority}{$record['destination']}\n";
-            }
-        }
+// If no records are provided, set default records
+if (empty($records)) {
+    $records = [
+        ['host' => '@', 'type' => 'A', 'destination' => '192.168.1.10'],
+        ['host' => 'ftp', 'type' => 'AAAA', 'destination' => '2001:0db8:85a3:0000:0000:8a2e:0370:7334'],
+        ['host' => 'mail', 'type' => 'A', 'destination' => '192.168.1.20'],
+        ['host' => 'www', 'type' => 'CNAME', 'destination' => '@'],
+        ['host' => '@', 'type' => 'MX', 'destination' => 'mail.' . $zone->name, 'priority' => 10],
+    ];
+}
 
-        // Save zone file
-        file_put_contents($filename, $zoneContent);
+// Define all record types
+$recordTypes = ["A", "A6", "AAAA", "CNAME", "DNAME", "DS", "LOC", "MX", "NAPTR", "NS", "PTR", "RP", "SRV", "SSHFP", "TXT", "WKS"];
+
+$recordData = [];
+
+// Organize records into sections
+foreach ($records as $record) {
+    $type = strtoupper($record['type']);
+    if (!in_array($type, $recordTypes)) continue;
+
+    $priority = ($type === 'MX' || $type === 'SRV') && isset($record['priority']) ? "{$record['priority']} " : '';
+    $recordData[$type][] = sprintf("%-8s IN  %-5s %s%s", $record['host'], $type, $priority, $record['destination']);
+}
+
+
+// Append record sections dynamically
+foreach ($recordTypes as $type) {
+    $zoneContent .= "\n; {$type} Records\n";
+    $zoneContent .= !empty($recordData[$type]) ? implode("\n", $recordData[$type]) . "\n" : "; No {$type} records\n";
+}
+
+// Save the .db file
+file_put_contents($filename, $zoneContent);
+
+
 
         // Save records to the database
         foreach ($records as $record) {
@@ -143,8 +165,6 @@ class ZoneController extends Controller
 
         return redirect()->route('zones.index')->with('success', 'Zone and records added successfully!');
     }
-
-
 
 
 
@@ -322,7 +342,7 @@ IN      NS      ns2." . $zone->name . ".
 
         // Now update the zone file at the specified location
         $username = auth()->user()->username;
-        $directory = "/var/www/html/storage/app/coredns/zones/" . $username;
+        $directory = "/var/www/html/storage/app/coredns/zones/" /* . $username */;
         if (!file_exists($directory)) {
             mkdir($directory, 0755, true);
         }
@@ -511,6 +531,8 @@ private function addRecordToSection($zoneContent, $recordType, $recordLine)
 
         // Update the existing zone file content (overwrite it)
         file_put_contents($filename, $zoneContent);
+         // Call the external API
+        $response = Http::get($this->dns_url.'/reload-coredns');
 
         return "Zone file updated successfully.";
     }
@@ -607,7 +629,7 @@ private function addRecordToSection($zoneContent, $recordType, $recordLine)
         // Get the username of the authenticated user
         $username = $user->username;
         $zoneName = $zone->name;
-        $directory = "/var/www/html/storage/app/coredns/zones/" . $username;
+        $directory = "/var/www/html/storage/app/coredns/zones/" /* . $username */;
 
         // Ensure the directory exists
         if (!file_exists($directory)) {
@@ -615,21 +637,22 @@ private function addRecordToSection($zoneContent, $recordType, $recordLine)
         }
 
         // Define the zone file path
-        $filename = $directory . "/" . $zoneName . ".zone";
+        $filename = $directory . "/" . $zoneName . ".db";
+        $serial = date('Ymd') . '01';
+         $zoneContent =ltrim("
+\$TTL {$zone->ttl}
+@   IN  SOA     {$zone->pri_dns}. admin.{$zone->name}. (
+                    {$serial}           ; Serial
+                    {$zone->refresh}           ; Refresh
+                    {$zone->retry}            ; Retry
+                    {$zone->expire}         ; Expire
+                    {$zone->ttl}           ; Minimum TTL
+)
 
-        // Generate the sample DNS zone file content
-        $zoneContent = "
-    \$TTL 3600
-    @       IN      SOA     ns1." . $zoneName . ". admin." . $zoneName . ". (
-                        " . date('Ymd') . "01              ; Serial
-                        " . $zone->refresh . "       ; Refresh
-                        " . $zone->retry . "         ; Retry
-                        " . $zone->expire . "        ; Expire
-                        " . $zone->ttl . "    )      ; Minimum TTL
-
-    IN      NS      ns1." . $zoneName . ".
-    IN      NS      ns2." . $zoneName . ".
-    ";
+; Name Servers (NS)
+@       IN      NS      {$zone->pri_dns}.
+@       IN      NS      {$zone->sec_dns}.
+" ,"\n");
 
 
 
@@ -650,28 +673,45 @@ private function addRecordToSection($zoneContent, $recordType, $recordLine)
         }
 
         // Loop through the records and save them to the database
+        $recordTypes = [];
+        foreach ($records as $record) {
+            $type = $record['type'];
+            $recordTypes[$type][] = $record;
+        }
+
+        foreach ($recordTypes as $type => $groupedRecords) {
+            $zoneContent .= "\n; {$type} Records\n"; // Heading
+            foreach ($groupedRecords as $record) {
+                $priority = ($type === 'MX' || $type === 'SRV') && isset($record['priority']) ? "{$record['priority']} " : '';
+                $zoneContent .= "{$record['host']}    IN    {$type}    {$priority}{$record['destination']}\n";
+            }
+        }
+
+        // Save zone file
+        file_put_contents($filename, $zoneContent);
+          // Create the second file: .conf
+          // Create the second file: .conf
+$configFilename = $directory . "/" . $request->name . ".conf";
+$configContent = "{$zone->name} {
+    file /etc/coredns/zones/{$zone->name}.db
+    log
+}";
+
+// Save .conf file
+file_put_contents($configFilename, $configContent);
+
+
+        // Save records to the database
         foreach ($records as $record) {
             $zone->records()->create([
                 'host' => $record['host'],
                 'type' => $record['type'],
                 'destination' => $record['destination'],
-                'priority' => $record['priority'] ?? null, // For MX records
+                'priority' => $record['priority'] ?? null,
             ]);
-
-            // Append the record to the zone file
-            $recordContent = "{$record['host']}    IN    {$record['type']}    {$record['destination']}\n";
-            if (isset($record['priority']) && $record['type'] === 'MX') {
-                $recordContent = "{$record['host']}    IN    MX    {$record['priority']} {$record['destination']}\n";
-            }
-            // Check if the record already exists in the zone file
-            if (strpos(file_get_contents($filename), $recordContent) === false) {
-                // Append the record to the zone file if it doesn't exist
-                file_put_contents($filename, $recordContent, FILE_APPEND);
-            }
         }
 
-
-
+        $response = Http::get($this->dns_url.'/reload-coredns');
         // Return the zone as a JSON response
         return response()->json($zone, 201);
     }
@@ -766,6 +806,8 @@ private function addRecordToSection($zoneContent, $recordType, $recordLine)
 
             \Log::info('Zone file updated: ' . $filename);
 
+            $response = Http::get($this->dns_url.'/reload-coredns');
+
             return response()->json($zone, 200);
         } catch (\Exception $e) {
             \Log::error('Update Zone Error: ' . $e->getMessage());
@@ -813,6 +855,8 @@ private function addRecordToSection($zoneContent, $recordType, $recordLine)
 
         // Delete the zone from the database
         $zone->delete();
+
+        $response = Http::get($this->dns_url.'/reload-coredns');
 
         return response()->json(['message' => 'Zone deleted successfully'], 200);
     }
@@ -894,6 +938,7 @@ private function addRecordToSection($zoneContent, $recordType, $recordLine)
             'priority' => $validated['priority'] ?? null,
         ]);
 
+        $response = Http::get($this->dns_url.'/reload-coredns');
         // Return success response with 201 status code
         return response()->json([
             'message' => 'Record added successfully',
@@ -1069,6 +1114,8 @@ private function addRecordToSection($zoneContent, $recordType, $recordLine)
         // Update the zone file if required
         $this->updateZoneFile($zone);
 
+        $response = Http::get($this->dns_url.'/reload-coredns');
+
         return response()->json([
             'message' => 'Record updated successfully.',
             'record' => $record,
@@ -1130,6 +1177,8 @@ private function addRecordToSection($zoneContent, $recordType, $recordLine)
 
     // Delete the record from the database
     $record->delete();
+
+    $response = Http::get($this->dns_url.'/reload-coredns');
 
     return response()->json(['message' => 'Record deleted successfully'], 200);
 }

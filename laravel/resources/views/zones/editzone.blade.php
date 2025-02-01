@@ -198,8 +198,7 @@
                             <tr>
                                 <td>
                                     <input type="hidden" name="record_id[{{ $key }}]" value="{{ $record->id }}">
-                                    <input type="text" name="host[{{ $key }}]" class="form-control"
-                                        value="{{ $record->host }}" size="16">
+                                    <input type="text" name="host[{{ $key }}]" class="form-control" value="{{ $record->host }}" size="16" required>
                                 </td>
                                 <td>
                                     <select name="type[{{ $key }}]" class="form-control">

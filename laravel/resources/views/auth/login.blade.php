@@ -56,10 +56,18 @@
         .login-card .content-wrapper p {
             flex: 1;
         }
+        .logo {
+            max-width: 310px; /* Adjust size */
+            height: auto;
+            display: block;
+            margin-left: 25px;
+        }
+
     </style>
 </head>
 <body>
     <div class="login-card">
+        <img src="{{ asset('images/logo.jpeg') }}" alt="DNS Manager Logo" class="logo mb-3">
         <h2 style="text-align: center; margin-bottom: 20px; background-color: #007bff; color: white; padding: 10px; border-radius: 8px; border: 2px solid #0056b3;">
             Login
         </h2>

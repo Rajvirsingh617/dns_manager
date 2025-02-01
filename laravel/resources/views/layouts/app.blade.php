@@ -119,7 +119,8 @@
 
         .sidebar-header {
             background-color: #333;
-            padding: 13px 15px;
+            height: 60px;
+            padding: 10px 15px 8px 12px;
             display: flex;
             align-items: center;
             justify-content: flex-start;
@@ -129,8 +130,8 @@
         }
 
         .sidebar-header img {
-            width: 40px;
-            height: 35px;
+            width: 270px;
+            height: 45px;
             margin-right: 10px;
         }
 
@@ -314,8 +315,8 @@
     <!-- Sidebar -->
     <div class="sidebar">
         <div class="sidebar-header">
-            <img src="/images/dnss.png" alt="DNS Logo">
-            <h7>OCEAN DNS Manager</h7>
+            <img id="sidebarLogo" src="{{ asset('images/logo.jpeg') }}" alt="DNS Manager Logo" class="logo mb-3 mt-3">
+           {{--  <h7>OCEAN DNS Manager</h7> --}}
 
         </div>
 
@@ -383,10 +384,11 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
    {{--  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script> --}}
 
-    <script>
+    {{-- <script>
         document.addEventListener('DOMContentLoaded', function () {
             const sidebar = document.querySelector('.sidebar');
             const toggleButton = document.getElementById('sidebarToggle');
+            const sidebarLogo = document.getElementById('sidebarLogo');
 
             toggleButton.addEventListener('click', function () {
                 // Toggle 'collapsed' class for sidebar collapse behavior
@@ -397,6 +399,25 @@
             });
         });
 
+    </script> --}}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const sidebar = document.querySelector('.sidebar');
+            const toggleButton = document.getElementById('sidebarToggle'); // Ensure this button exists
+            const sidebarText = document.getElementById('sidebarText');
+
+            toggleButton.addEventListener('click', function () {
+                // Toggle 'collapsed' class for sidebar collapse behavior
+                sidebar.classList.toggle('collapsed');
+
+                // Change the text based on the sidebar state
+                if (sidebar.classList.contains('collapsed')) {
+                    sidebarText.textContent = "DNS"; // Change to your collapsed text
+                } else {
+                    sidebarText.textContent = "DNS Manager"; // Change to your expanded text
+                }
+            });
+        });
     </script>
 
     <script>

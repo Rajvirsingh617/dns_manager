@@ -15,6 +15,7 @@ use App\Http\Controllers\CommitChangesController;
 
 Route::get('/register', [RegisterController::class, 'showRegisterForm'])->name('register');
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
+Route::get('/', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/register', [RegisterController::class, 'store']);
 /* Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login'); */
 Route::post('/login', [AuthController::class, 'login']);

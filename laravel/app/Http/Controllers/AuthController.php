@@ -37,7 +37,7 @@ class AuthController extends Controller
     {
         Auth::logout();
         session()->forget('username');
-        return redirect('/login');
+        return redirect('/');
     }
 
     public function getRoleAttribute()

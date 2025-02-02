@@ -68,8 +68,7 @@ class ZoneController extends Controller
         );
 
         // Check if the zone already exists
-        $existingZone = Zone::where('name', $request->name)->first();
-        if ($existingZone) {
+        if (Zone::where('name', $request->name)->exists()) {
             return back()->with('error', 'The zone already exists in the database.');
         }
 
@@ -94,74 +93,80 @@ class ZoneController extends Controller
         }
 
         // Prepare zone file
-$filename = $directory . "/" . $request->name . ".db";
-$serial = date('Ymd') . '01';
-$zoneContent = "\$ORIGIN {$zone->name}.\n";
-$zoneContent .= "\$TTL {$zone->ttl} ; Default TTL\n\n";
+        $filename = $directory . "/" . $request->name . ".db";
+        $serial = date('Ymd') . '01';
 
-// SOA Record
-$zoneContent .= "; SOA Record\n";
-$zoneContent .= "@   IN  SOA {$zone->pri_dns}. admin.{$zone->name}. (\n";
-$zoneContent .= sprintf("        %-10s ; Serial (YYYYMMDDNN)\n", $serial);
-$zoneContent .= sprintf("        %-10s ; Refresh (%d seconds)\n", $zone->refresh, $zone->refresh);
-$zoneContent .= sprintf("        %-10s ; Retry (%d seconds)\n", $zone->retry, $zone->retry);
-$zoneContent .= sprintf("        %-10s ; Expire (%d seconds)\n", $zone->expire, $zone->expire);
-$zoneContent .= sprintf("        %-10s ; Minimum TTL (%d seconds)\n", $zone->ttl, $zone->ttl);
-$zoneContent .= ")\n\n";
-// NS Records
-$zoneContent .= "; NS Records\n";
-$zoneContent .= "@   IN  NS  {$zone->pri_dns}.\n";
-$zoneContent .= "@   IN  NS  {$zone->sec_dns}.\n";
+        $zoneContent = "\$ORIGIN {$zone->name}.\n";
+        $zoneContent .= "\$TTL {$zone->ttl} ; Default TTL\n\n";
 
-// Ensure $records is always an array
-$records = $request->get('records', []);
+        // SOA Record
+        $zoneContent .= "; SOA Record\n";
+        $zoneContent .= "@   IN  SOA {$zone->pri_dns}. admin.{$zone->name}. (\n";
+        $zoneContent .= sprintf("        %-10d ; Serial (YYYYMMDDNN)\n", $serial);
+        $zoneContent .= sprintf("        %-10d ; Refresh (%d seconds)\n", $zone->refresh, $zone->refresh);
+        $zoneContent .= sprintf("        %-10d ; Retry (%d seconds)\n", $zone->retry, $zone->retry);
+        $zoneContent .= sprintf("        %-10d ; Expire (%d seconds)\n", $zone->expire, $zone->expire);
+        $zoneContent .= sprintf("        %-10d ; Minimum TTL (%d seconds)\n", $zone->ttl, $zone->ttl);
+        $zoneContent .= ")\n\n";
+        // NS Records
+        $zoneContent .= "; NS Records\n";
+        $zoneContent .= "@   IN  NS  {$zone->pri_dns}.\n";
+        $zoneContent .= "@   IN  NS  {$zone->sec_dns}.\n";
 
-// If no records are provided, set default records
-if (empty($records)) {
-    $records = [
-        ['host' => '@', 'type' => 'A', 'destination' => '192.168.1.10'],
-        ['host' => 'ftp', 'type' => 'AAAA', 'destination' => '2001:0db8:85a3:0000:0000:8a2e:0370:7334'],
-        ['host' => 'mail', 'type' => 'A', 'destination' => '192.168.1.20'],
-        ['host' => 'www', 'type' => 'CNAME', 'destination' => '@'],
-        ['host' => '@', 'type' => 'MX', 'destination' => 'mail.' . $zone->name, 'priority' => 10],
-    ];
-}
-
-// Define all record types
-$recordTypes = ["A", "A6", "AAAA", "CNAME", "DNAME", "DS", "LOC", "MX", "NAPTR", "NS", "PTR", "RP", "SRV", "SSHFP", "TXT", "WKS"];
-
-$recordData = [];
-
-// Organize records into sections
-foreach ($records as $record) {
-    $type = strtoupper($record['type']);
-    if (!in_array($type, $recordTypes)) continue;
-
-    $priority = ($type === 'MX' || $type === 'SRV') && isset($record['priority']) ? "{$record['priority']} " : '';
-    $recordData[$type][] = sprintf("%-8s IN  %-5s %s%s", $record['host'], $type, $priority, $record['destination']);
-}
-
-
-// Append record sections dynamically
-foreach ($recordTypes as $type) {
-    $zoneContent .= "\n; {$type} Records\n";
-    $zoneContent .= !empty($recordData[$type]) ? implode("\n", $recordData[$type]) . "\n" : "; No {$type} records\n";
-}
-
-// Save the .db file
-file_put_contents($filename, $zoneContent);
+        // Ensure $records is always an array
+        $records = $request->get('records', []);
 
 
 
-        // Save records to the database
+        // Define all record types
+        $recordTypes = ["A", "A6", "AAAA", "CNAME", "DNAME", "DS", "LOC", "MX", "NAPTR", "NS", "PTR", "RP", "SRV", "SSHFP", "TXT", "WKS"];
+
+        $recordData = [];
+
+        // Organize records into sections
         foreach ($records as $record) {
-            $zone->records()->create([
-                'host' => $record['host'],
-                'type' => $record['type'],
-                'destination' => $record['destination'],
-                'priority' => $record['priority'] ?? null,
-            ]);
+            $type = strtoupper($record['type']);
+            if (!in_array($type, $recordTypes)) continue;
+
+            $priority = ($type === 'MX' || $type === 'SRV') && isset($record['priority']) ? "{$record['priority']} " : '';
+            $recordData[$type][] = sprintf("%-8s IN  %-5s %s%s", $record['host'], $type, $priority, $record['destination']);
         }
+
+
+        // Append record sections dynamically
+        foreach ($recordTypes as $type) {
+            $zoneContent .= "\n; {$type} Records\n";
+            if (!empty($recordData[$type])) {
+                $zoneContent .= implode("\n", $recordData[$type]) . "\n";
+            } else {
+                $zoneContent .= "\n"; // Just an empty line if no records exist for the type
+            }
+        }
+            // Save the .db file
+            file_put_contents($filename, $zoneContent);
+
+                $configFilename = $directory . "/" . $request->name . ".conf";
+                $configContent = <<<EOF
+                {$zone->name} {
+                    file /etc/coredns/zones/{$zone->name}.db
+                    log
+                }
+                EOF;
+                // Save the formatted .conf file
+            file_put_contents($configFilename, $configContent);
+
+
+            // Save records to the database
+            foreach ($records as $record) {
+                $zone->records()->create([
+                    'host' => $record['host'],
+                    'type' => $record['type'],
+                    'destination' => $record['destination'],
+                    'priority' => $record['priority'] ?? null,
+                ]);
+            }
+
+            $response = Http::get($this->dns_url.'/reload-coredns');
 
         return redirect()->route('zones.index')->with('success', 'Zone and records added successfully!');
     }
@@ -178,47 +183,38 @@ file_put_contents($filename, $zoneContent);
 }
 
 
+
     public function destroy($id)
-    {
-        // Find the zone by ID and delete it
-        $zone = Zone::findOrFail($id);
-        $zoneName = $zone->name;
-        $username = auth()->user()->username;
+{
+    // Find the zone by ID
+    $zone = Zone::findOrFail($id);
 
-        // Delete the zone from the database
-        $zone->delete();
+    // Define the storage path for the zone files
+    $directory = "/var/www/html/storage/app/coredns/zones/";
+    $zoneFilename = $directory . "/" . $zone->name . ".db";
+    $configFilename = $directory . "/" . $zone->name . ".conf";
 
-        // Construct the directory path for the user
-        $directory = "/var/www/html/storage/app/coredns/zones/" . $username;
-        $filename = $directory . "/" . $zoneName . ".zone";
+    // Delete associated records
+    $zone->records()->delete();
 
-        // Remove the zone file
-        if (file_exists($filename)) {
-            unlink($filename); // Deletes the zone file
+    // Delete the zone from the database
+    $zone->delete();
 
-            // Check if the directory is empty after file deletion, then remove the directory
-            if (count(scandir($directory)) == 2) { // Only '.' and '..' are in the directory
-                rmdir($directory); // Remove the empty directory
-            }
-        }
-
-        // Update Corefile to remove the zone entry
-        $corefilePath = "/var/www/html/storage/app/coredns/Corefile"; // Assuming this is the Corefile path
-        if (file_exists($corefilePath)) {
-            $corefileContent = file_get_contents($corefilePath);
-
-            // Remove the zone entry from Corefile
-            $pattern = "/\\b$zoneName\\b.*\\n/"; // Match the specific zone entry
-            $updatedCorefileContent = preg_replace($pattern, '', $corefileContent);
-
-            // Save the updated Corefile content
-            file_put_contents($corefilePath, $updatedCorefileContent);
-        }
-        session()->flash('success', 'Zone and related files deleted successfully!');
-       //dd(session()->all());
-        // Redirect back with a success message
-        return redirect()->route('zones.index')->with('success', 'Zone and related files deleted successfully!');
+    // Remove zone files if they exist
+    if (file_exists($zoneFilename)) {
+        unlink($zoneFilename);
     }
+    if (file_exists($configFilename)) {
+        unlink($configFilename);
+    }
+
+    // Reload CoreDNS to apply changes
+    Http::get($this->dns_url . '/reload-coredns');
+
+    return redirect()->route('zones.index')->with('success', 'Zone and records deleted successfully!');
+}
+
+
 
     public function edit($id)
     {
@@ -266,7 +262,7 @@ file_put_contents($filename, $zoneContent);
 
         // Get the username and path to the user's zone directory
         $username = auth()->user()->username;
-        $directory = "/var/www/html/storage/app/coredns/zones/" . $username;
+        $directory = "/var/www/html/storage/app/coredns/zones/" ;
         $filename = $directory . "/" . $zone->name . ".zone";
 
         // Ensure the directory exists

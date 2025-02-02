@@ -315,7 +315,7 @@
     <!-- Sidebar -->
     <div class="sidebar">
         <div class="sidebar-header">
-            <img id="sidebarLogo" src="{{ asset('images/logo.jpeg') }}" alt="DNS Manager Logo" class="logo mb-3 mt-3">
+            <img id="sidebarLogo" src="{{ asset('images/logo.png') }}" alt="DNS Manager Logo" class="logo mb-3 mt-3">
            {{--  <h7>OCEAN DNS Manager</h7> --}}
 
         </div>
@@ -374,7 +374,6 @@
         <main>
             @yield('content')
         </main>
-        {{-- @include('layouts.footer') --}}
     </div>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.6.0/dist/sweetalert2.all.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -382,24 +381,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-   {{--  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script> --}}
 
-    {{-- <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const sidebar = document.querySelector('.sidebar');
-            const toggleButton = document.getElementById('sidebarToggle');
-            const sidebarLogo = document.getElementById('sidebarLogo');
-
-            toggleButton.addEventListener('click', function () {
-                // Toggle 'collapsed' class for sidebar collapse behavior
-                sidebar.classList.toggle('collapsed');
-
-                // Toggle 'right' class to move sidebar to the right side
-                sidebar.classList.toggle('left');
-            });
-        });
-
-    </script> --}}
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const sidebar = document.querySelector('.sidebar');
@@ -418,17 +400,6 @@
                 }
             });
         });
-    </script>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            <
-            blade
-            if |(session( % 26 % 2339 % 3 Bpopup % 26 % 2339 % 3 B)) % 0 D >
-                $('#popupModal').modal('show'); <
-            /blade endif|%0D>
-        });
-
     </script>
 
     <script>
